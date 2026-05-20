@@ -12,7 +12,7 @@ An AI-powered cloud support assistant for IT support teams. Automatically ingest
 
 | | Feature | Description |
 |---|---------|-------------|
-| 🔔 | **Alert Ingestion** | Receives Azure Monitor alerts via REST API with a 7-type mock simulator for demos |
+| 🔔 | **Alert Ingestion** | Receives Azure Monitor alerts via REST API |
 | 🤖 | **AI Alert Analysis** | One-click GPT-4o analysis — explains what happened, what to check, and next steps |
 | 📋 | **KQL Log Analysis** | Runs pre-built KQL queries per alert type; falls back to realistic mock data |
 | 📚 | **RAG Knowledge Base** | 6 built-in troubleshooting runbooks, semantic search via Azure AI Search |
