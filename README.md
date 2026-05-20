@@ -1,88 +1,27 @@
-# Helpdesk Copilot
+# 🛠️ Helpdesk Copilot
 
 An AI-powered cloud support assistant for IT support teams. Automatically ingests Azure Monitor alerts, analyzes logs with KQL, searches a troubleshooting knowledge base using RAG, and creates incident tickets — all with AI-generated summaries and plain-English recommendations.
 
 ---
 
-## Features
+## ✨ Features
 
-### Alert Ingestion & Management
-- Receives Azure Monitor alerts via REST API — plug directly into Azure Monitor action groups
-- Supports **7 alert types**: High CPU, Failed Requests, Slow API Response, App Service Unavailable, Database Connection Failure, Memory Spike, Login Failure Spike
-- Built-in **mock alert simulator** to demo any alert type without real Azure infrastructure
-- Per-alert status lifecycle: New → Acknowledged → In Progress → Resolved
-- Alerts automatically trigger dashboard notifications on arrival
-
-### AI-Powered Alert Analysis
-- One-click **AI analysis** for any alert, powered by Azure OpenAI GPT-4o
-- Generates plain-English explanations: what triggered the alert, what to check first, and immediate actions
-- Context-aware: each alert type produces a different, targeted analysis (e.g. SQL connection failure analysis differs from CPU spike analysis)
-- Analysis is persisted with the alert and reused in chat and ticket creation
-- Runs fully offline with rule-based fallback when Azure OpenAI is not configured
-
-### Log Analysis with KQL
-- Fetches correlated telemetry from **Azure Log Analytics** using pre-built KQL queries
-- Each alert type has a tailored KQL query (exception counts, slow requests, CPU counters, auth failures, etc.)
-- Displays top error events with timestamps, sources, exception types, and occurrence counts
-- Falls back to **realistic mock log data** for local development — no workspace required
-
-### RAG Troubleshooting Knowledge Base
-- **6 built-in troubleshooting articles** covering the most common Azure support scenarios:
-  - App Service 500 errors
-  - Database connection timeouts
-  - High CPU investigation
-  - Azure Function failures
-  - Memory spike resolution
-  - Login failure / security incidents
-- Semantic search powered by **Azure AI Search** (with automatic in-memory fallback)
-- Knowledge base is seeded automatically on startup — zero configuration needed
-- New articles can be indexed at runtime via `POST /api/knowledge`
-- Search results are injected as context into every AI chat response (grounded answers)
-
-### AI Copilot Chat
-- Conversational interface for support engineers to ask free-form questions
-- **Session-based**: full message history maintained per conversation, last 10 messages sent as context
-- **RAG-grounded**: relevant knowledge articles are retrieved and included in every GPT-4o prompt
-- **Alert-aware**: opening chat from an alert page pre-loads that alert's details and analysis as context
-- Displays **source citations** beneath each AI response so engineers know which runbook was used
-- Suggests follow-up actions (e.g. "Create ticket", "Scale out App Service") based on conversation content
-- Works without Azure OpenAI using an intelligent rule-based fallback that still surfaces knowledge articles
-
-### Automated Ticket Creation
-- **One-click ticket generation** from any alert — auto-populated with:
-  - Severity-mapped priority (Critical alert → Critical ticket)
-  - AI-generated incident summary
-  - Inferred possible root cause
-  - Step-by-step recommended actions
-  - Link to the relevant knowledge base runbook
-- Full ticket lifecycle: Open → In Progress → Resolved → Closed
-- Assign tickets to engineers, update priority and status inline
-- Add threaded comments to tickets for investigation notes
-- Filter tickets by status or priority
-
-### Notification System
-- **Dashboard notifications** created automatically for every new alert and ticket
-- Severity-based routing: Critical alerts also trigger mock **Teams** and **email** notifications
-- Unread notification count displayed in the top navigation bar
-- Mark individual notifications or all as read
-- Ready to wire up to real Microsoft Teams webhooks or SendGrid email
-
-### Blazor Web Dashboard
-- **Dashboard** — live stats (critical alerts, active alerts, open tickets, resolved today), recent alerts and tickets with color-coded severity badges, quick-action buttons
-- **Alerts page** — filterable alert list with inline AI analysis and log viewer panels, mock alert simulator with type selector
-- **Tickets page** — expandable ticket cards showing AI summary, root cause, recommended actions, comments, and inline status/assignment editing
-- **AI Copilot page** — full chat UI with session sidebar, message bubbles, source citations, typing indicator, and suggested action chips
-- **Knowledge Base page** — searchable card grid of all troubleshooting articles with tag filtering and expandable full content
-
-### Infrastructure & CI/CD
-- Full **Bicep IaC** for one-command Azure deployment: App Service, Azure OpenAI, Azure AI Search, Azure SQL, Log Analytics, Application Insights
-- **GitHub Actions pipeline**: build → test → deploy infrastructure → deploy API → deploy Blazor app
-- Environment-aware sizing (Basic tier for dev, Premium for prod)
-- System-assigned managed identities on all App Service resources
+| | Feature | Description |
+|---|---------|-------------|
+| 🔔 | **Alert Ingestion** | Receives Azure Monitor alerts via REST API with a 7-type mock simulator for demos |
+| 🤖 | **AI Alert Analysis** | One-click GPT-4o analysis — explains what happened, what to check, and next steps |
+| 📋 | **KQL Log Analysis** | Runs pre-built KQL queries per alert type; falls back to realistic mock data |
+| 📚 | **RAG Knowledge Base** | 6 built-in troubleshooting runbooks, semantic search via Azure AI Search |
+| 💬 | **AI Copilot Chat** | Context-aware chat with session history, cited sources, and suggested actions |
+| 🎫 | **Auto Ticket Creation** | One-click ticket from alert with AI summary, root cause, and recommended actions |
+| 🔔 | **Notifications** | Dashboard alerts + mock Teams/email routing by severity |
+| ⚡ | **Azure Functions** | Background alert poller (5 min) and ticket escalation notifier (10 min) |
+| 🖥️ | **Blazor Dashboard** | Dashboard, Alerts, Tickets, AI Chat, and Knowledge Base pages |
+| 🚀 | **IaC & CI/CD** | Bicep one-command deployment + GitHub Actions build/deploy pipeline |
 
 ---
 
-## Architecture
+## 🏗️ Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -111,7 +50,7 @@ Monitor    OpenAI      Search       SQL
 
 ---
 
-## Tech Stack
+## 🧰 Tech Stack
 
 | Area | Technology |
 |------|-----------|
@@ -128,25 +67,22 @@ Monitor    OpenAI      Search       SQL
 
 ---
 
-## Prerequisites
+## 📋 Prerequisites
 
 - [.NET 8 SDK](https://dotnet.microsoft.com/download)
-- Visual Studio 2022 / VS Code / Rider
-- **Optional for full AI features:**
-  - Azure OpenAI resource with GPT-4o deployment
-  - Azure AI Search resource
-  - Azure Monitor Log Analytics workspace
+- Visual Studio 2022 
+- Azure OpenAI resource with GPT-4o deployment
+- Azure AI Search resource
+- Azure Monitor Log Analytics workspace
 
 ---
 
-## Quick Start (Local — No Azure Required)
-
-The application runs fully without Azure credentials using in-memory storage and rule-based AI responses.
+## ⚡ Quick Start
 
 ```bash
 # Clone the repository
 git clone <repo-url>
-cd azure-ai-helpdesk-copilot
+cd helpdesk-copilot
 
 # Terminal 1 — Start the API (port 5000)
 cd src/HelpdeskCopilot.Api
@@ -163,7 +99,7 @@ The Swagger UI is available at http://localhost:5000/swagger.
 
 ---
 
-## Configuring Azure Services
+## ⚙️ Configuring Azure Services
 
 Edit `src/HelpdeskCopilot.Api/appsettings.json` (or use environment variables / Azure App Settings):
 
@@ -185,12 +121,9 @@ Edit `src/HelpdeskCopilot.Api/appsettings.json` (or use environment variables / 
   }
 }
 ```
-
-When Azure OpenAI is configured, the AI Chat uses real GPT-4o completions. When not configured, it uses rule-based responses with knowledge base snippets — still fully functional for demos.
-
 ---
 
-## Modules
+## 📦 Modules
 
 ### 1. Alert Ingestion
 - `POST /api/alerts` — ingest real alerts from Azure Monitor action groups
@@ -226,13 +159,12 @@ When Azure OpenAI is configured, the AI Chat uses real GPT-4o completions. When 
 
 ---
 
-## API Reference
+## 🔌 API Reference
 
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | /api/alerts | List alerts (filter by status) |
 | POST | /api/alerts | Ingest alert |
-| POST | /api/alerts/mock | Generate mock alert |
 | POST | /api/alerts/{id}/analyze | AI analysis |
 | POST | /api/alerts/{id}/create-ticket | Auto-create ticket |
 | GET | /api/alerts/{id}/logs | Log analysis |
@@ -251,7 +183,7 @@ Full interactive docs: http://localhost:5000/swagger
 
 ---
 
-## Deploying to Azure
+## ☁️ Deploying to Azure
 
 ### 1. Deploy Infrastructure
 
@@ -281,7 +213,7 @@ Push to `main` to trigger full deployment.
 
 ---
 
-## Project Structure
+## 📁 Project Structure
 
 ```
 ├── src/
@@ -307,19 +239,10 @@ Push to `main` to trigger full deployment.
 
 ---
 
-## Example Scenario
+## 🎯 Example Scenario
 
-1. Click **Simulate Alert** on the Dashboard → selects a random alert type
+1. Click on the Dashboard → selects a random alert type
 2. On the Alerts page, click **AI Analyze** → GPT-4o (or rule-based) analysis appears inline
 3. Click **Create Ticket** → ticket auto-populated with AI summary, root cause, recommended actions
 4. Open **AI Copilot** → context-aware chat with cited knowledge base articles
 5. In Tickets, add comments, update status, and resolve
-
----
-
-## Contributing
-
-1. Fork and create a feature branch
-2. Run `dotnet build HelpdeskCopilot.sln` — must pass
-3. Follow existing code patterns (no magic strings, use DI, prefer records for DTOs)
-4. Submit PR against `main`
