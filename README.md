@@ -2,13 +2,9 @@
 
 An AI-powered cloud support assistant for IT support teams. Automatically ingests Azure Monitor alerts, analyzes logs with KQL, searches a troubleshooting knowledge base using RAG, and creates incident tickets — all with AI-generated summaries and plain-English recommendations.
 
----
+![Dashboard](assets/dashboard.png) 
 
-## 📸 Screenshots
-
-| Dashboard | AI Copilot Chat |
-|-----------|----------------|
-| ![Dashboard](assets/dashboard.png) | ![AI Copilot](assets/copilot.png) |
+![AI Copilot](assets/copilot.png)
 
 ---
 
