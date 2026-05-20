@@ -1,0 +1,238 @@
+@page "/"
+@inject ApiClient Api
+@inject NavigationManager Nav
+
+<PageTitle>Dashboard — Azure Helpdesk Copilot</PageTitle>
+
+<div class="dashboard-grid">
+
+    <!-- Stats Row -->
+    <div class="stats-row">
+        <div class="stat-card">
+            <div class="stat-icon bg-danger-subtle">
+                <i class="bi bi-exclamation-triangle-fill text-danger"></i>
+            </div>
+            <div>
+                <div class="stat-value">@_criticalAlerts</div>
+                <div class="stat-label">Critical Alerts</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon bg-warning-subtle">
+                <i class="bi bi-bell-fill text-warning"></i>
+            </div>
+            <div>
+                <div class="stat-value">@_totalAlerts</div>
+                <div class="stat-label">Active Alerts</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon bg-primary-subtle">
+                <i class="bi bi-ticket-detailed-fill text-primary"></i>
+            </div>
+            <div>
+                <div class="stat-value">@_openTickets</div>
+                <div class="stat-label">Open Tickets</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon bg-success-subtle">
+                <i class="bi bi-check-circle-fill text-success"></i>
+            </div>
+            <div>
+                <div class="stat-value">@_resolvedToday</div>
+                <div class="stat-label">Resolved Today</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="card mb-4">
+        <div class="card-body d-flex gap-2 flex-wrap">
+            <button class="btn btn-danger" @onclick="GenerateMockAlert" disabled="@_loading">
+                <i class="bi bi-lightning-charge-fill me-1"></i> Simulate Alert
+            </button>
+            <button class="btn btn-primary" @onclick='() => Nav.NavigateTo("/chat")'>
+                <i class="bi bi-chat-dots-fill me-1"></i> Open AI Copilot
+            </button>
+            <button class="btn btn-outline-secondary" @onclick="LoadData" disabled="@_loading">
+                <i class="bi bi-arrow-clockwise me-1"></i> Refresh
+            </button>
+            @if (!string.IsNullOrEmpty(_actionMessage))
+            {
+                <span class="badge bg-success align-self-center">@_actionMessage</span>
+            }
+        </div>
+    </div>
+
+    <div class="row g-4">
+
+        <!-- Recent Alerts -->
+        <div class="col-lg-6">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0"><i class="bi bi-bell me-2"></i>Recent Alerts</h6>
+                    <a href="/alerts" class="btn btn-sm btn-link p-0">View all</a>
+                </div>
+                <div class="card-body p-0">
+                    @if (_loading)
+                    {
+                        <div class="text-center p-4"><div class="spinner-border spinner-border-sm text-primary"></div></div>
+                    }
+                    else if (_recentAlerts.Count == 0)
+                    {
+                        <div class="text-center p-4 text-muted">
+                            <i class="bi bi-check-circle display-6 text-success"></i>
+                            <p class="mt-2">No active alerts</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <ul class="list-group list-group-flush">
+                            @foreach (var alert in _recentAlerts)
+                            {
+                                <li class="list-group-item list-group-item-action" @onclick='() => Nav.NavigateTo("/alerts")' style="cursor:pointer">
+                                    <div class="d-flex align-items-start gap-2">
+                                        <span class="badge @SeverityBadge(alert.Severity) mt-1">@alert.Severity</span>
+                                        <div class="flex-grow-1 min-width-0">
+                                            <div class="fw-semibold text-truncate">@alert.Title</div>
+                                            <small class="text-muted">@alert.AffectedService &middot; @TimeAgo(alert.TriggeredAt)</small>
+                                        </div>
+                                        <span class="badge @StatusBadge(alert.Status) ms-1">@alert.Status</span>
+                                    </div>
+                                </li>
+                            }
+                        </ul>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Tickets -->
+        <div class="col-lg-6">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0"><i class="bi bi-ticket-detailed me-2"></i>Recent Tickets</h6>
+                    <a href="/tickets" class="btn btn-sm btn-link p-0">View all</a>
+                </div>
+                <div class="card-body p-0">
+                    @if (_loading)
+                    {
+                        <div class="text-center p-4"><div class="spinner-border spinner-border-sm text-primary"></div></div>
+                    }
+                    else if (_recentTickets.Count == 0)
+                    {
+                        <div class="text-center p-4 text-muted">
+                            <i class="bi bi-inbox display-6"></i>
+                            <p class="mt-2">No tickets yet</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <ul class="list-group list-group-flush">
+                            @foreach (var ticket in _recentTickets)
+                            {
+                                <li class="list-group-item list-group-item-action" @onclick='() => Nav.NavigateTo("/tickets")' style="cursor:pointer">
+                                    <div class="d-flex align-items-start gap-2">
+                                        <span class="badge @PriorityBadge(ticket.Priority) mt-1">@ticket.Priority</span>
+                                        <div class="flex-grow-1 min-width-0">
+                                            <div class="fw-semibold text-truncate">@ticket.Title</div>
+                                            <small class="text-muted">@ticket.AffectedService &middot; @TimeAgo(ticket.CreatedAt)</small>
+                                        </div>
+                                        <span class="badge @TicketStatusBadge(ticket.Status)">@ticket.Status</span>
+                                    </div>
+                                </li>
+                            }
+                        </ul>
+                    }
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+@code {
+    private List<Alert> _recentAlerts = [];
+    private List<Ticket> _recentTickets = [];
+    private bool _loading = true;
+    private string _actionMessage = string.Empty;
+    private int _criticalAlerts, _totalAlerts, _openTickets, _resolvedToday;
+
+    protected override async Task OnInitializedAsync() => await LoadData();
+
+    private async Task LoadData()
+    {
+        _loading = true;
+        try
+        {
+            var alerts = await Api.GetAlertsAsync(limit: 20) ?? [];
+            var tickets = await Api.GetTicketsAsync(limit: 20) ?? [];
+
+            _recentAlerts = alerts.Take(5).ToList();
+            _recentTickets = tickets.Take(5).ToList();
+
+            _criticalAlerts = alerts.Count(a => a.Severity == AlertSeverity.Critical && a.Status != AlertStatus.Resolved);
+            _totalAlerts = alerts.Count(a => a.Status != AlertStatus.Resolved);
+            _openTickets = tickets.Count(t => t.Status is TicketStatus.Open or TicketStatus.InProgress);
+            _resolvedToday = tickets.Count(t => t.ResolvedAt?.Date == DateTime.UtcNow.Date);
+        }
+        catch { }
+        finally { _loading = false; }
+    }
+
+    private async Task GenerateMockAlert()
+    {
+        _actionMessage = string.Empty;
+        var types = Enum.GetValues<AlertType>();
+        var type = types[Random.Shared.Next(types.Length)];
+        try
+        {
+            await Api.GenerateMockAlertAsync(type);
+            _actionMessage = $"Alert simulated: {type}";
+            await LoadData();
+        }
+        catch { _actionMessage = "Failed to simulate alert"; }
+    }
+
+    private static string SeverityBadge(AlertSeverity s) => s switch
+    {
+        AlertSeverity.Critical => "severity-critical",
+        AlertSeverity.High => "severity-high",
+        AlertSeverity.Medium => "severity-medium",
+        _ => "severity-low"
+    };
+
+    private static string StatusBadge(AlertStatus s) => s switch
+    {
+        AlertStatus.New => "bg-danger",
+        AlertStatus.Acknowledged => "bg-warning text-dark",
+        AlertStatus.InProgress => "bg-primary",
+        _ => "bg-success"
+    };
+
+    private static string PriorityBadge(TicketPriority p) => p switch
+    {
+        TicketPriority.Critical => "severity-critical",
+        TicketPriority.High => "severity-high",
+        TicketPriority.Medium => "severity-medium",
+        _ => "severity-low"
+    };
+
+    private static string TicketStatusBadge(TicketStatus s) => s switch
+    {
+        TicketStatus.Open => "bg-danger",
+        TicketStatus.InProgress => "bg-primary",
+        TicketStatus.Resolved => "bg-success",
+        _ => "bg-secondary"
+    };
+
+    private static string TimeAgo(DateTime dt)
+    {
+        var diff = DateTime.UtcNow - dt;
+        if (diff.TotalMinutes < 1) return "just now";
+        if (diff.TotalMinutes < 60) return $"{(int)diff.TotalMinutes}m ago";
+        if (diff.TotalHours < 24) return $"{(int)diff.TotalHours}h ago";
+        return $"{(int)diff.TotalDays}d ago";
+    }
+}

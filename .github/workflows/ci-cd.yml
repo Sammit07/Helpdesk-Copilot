@@ -1,0 +1,138 @@
+name: CI/CD — Azure Helpdesk Copilot
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  DOTNET_VERSION: '8.0.x'
+  API_PROJECT: 'src/HelpdeskCopilot.Api/HelpdeskCopilot.Api.csproj'
+  WEB_PROJECT: 'src/HelpdeskCopilot.Web/HelpdeskCopilot.Web.csproj'
+  FUNCTIONS_PROJECT: 'src/HelpdeskCopilot.Functions/HelpdeskCopilot.Functions.csproj'
+
+jobs:
+  # ── 1. Build & Test ──────────────────────────────────────────────────────
+  build-and-test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET ${{ env.DOTNET_VERSION }}
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore dependencies
+        run: dotnet restore HelpdeskCopilot.sln
+
+      - name: Build solution
+        run: dotnet build HelpdeskCopilot.sln --no-restore --configuration Release
+
+      - name: Run tests
+        run: dotnet test HelpdeskCopilot.sln --no-build --configuration Release --verbosity normal
+
+      - name: Publish API artifact
+        if: github.ref == 'refs/heads/main'
+        run: dotnet publish ${{ env.API_PROJECT }} --configuration Release --output ./publish/api
+
+      - name: Publish Web artifact
+        if: github.ref == 'refs/heads/main'
+        run: dotnet publish ${{ env.WEB_PROJECT }} --configuration Release --output ./publish/web
+
+      - name: Upload API artifact
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-artifact
+          path: ./publish/api
+
+      - name: Upload Web artifact
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-artifact
+          path: ./publish/web
+
+  # ── 2. Deploy Infrastructure (main branch only) ─────────────────────────
+  deploy-infrastructure:
+    name: Deploy Infrastructure
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    if: github.ref == 'refs/heads/main'
+    environment: production
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy Bicep
+        uses: azure/arm-deploy@v2
+        with:
+          subscriptionId: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          resourceGroupName: ${{ secrets.RESOURCE_GROUP }}
+          template: ./infrastructure/main.bicep
+          parameters: >
+            environment=prod
+            prefix=helpdesk
+            sqlAdminPassword=${{ secrets.SQL_ADMIN_PASSWORD }}
+          failOnStdErr: false
+
+  # ── 3. Deploy API ─────────────────────────────────────────────────────────
+  deploy-api:
+    name: Deploy API
+    runs-on: ubuntu-latest
+    needs: deploy-infrastructure
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Download API artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: api-artifact
+          path: ./publish/api
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy API to App Service
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ secrets.API_APP_NAME }}
+          package: ./publish/api
+
+  # ── 4. Deploy Web ─────────────────────────────────────────────────────────
+  deploy-web:
+    name: Deploy Web (Blazor)
+    runs-on: ubuntu-latest
+    needs: deploy-infrastructure
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Download Web artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: web-artifact
+          path: ./publish/web
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy Web to App Service
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ secrets.WEB_APP_NAME }}
+          package: ./publish/web

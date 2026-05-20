@@ -1,0 +1,288 @@
+@page "/chat"
+@inject ApiClient Api
+@inject NavigationManager Nav
+
+<PageTitle>AI Copilot — Azure Helpdesk Copilot</PageTitle>
+
+<div class="chat-layout">
+
+    <!-- Session Sidebar -->
+    <aside class="chat-sidebar">
+        <div class="p-2 border-bottom">
+            <button class="btn btn-primary btn-sm w-100" @onclick="NewSession">
+                <i class="bi bi-plus-circle me-1"></i>New Session
+            </button>
+        </div>
+        <div class="session-list">
+            @if (_sessions.Count == 0)
+            {
+                <div class="text-center text-muted p-3 small">No sessions yet</div>
+            }
+            else
+            {
+                @foreach (var session in _sessions)
+                {
+                    <div class="session-item @(_currentSessionId == session.Id ? "active" : "")"
+                         @onclick="() => SelectSession(session.Id)">
+                        <i class="bi bi-chat-square-text me-2"></i>
+                        <div class="session-item-content">
+                            <div class="session-title">@TruncateTitle(session.Title)</div>
+                            <div class="session-date">@TimeAgo(session.CreatedAt)</div>
+                        </div>
+                        @if (session.RelatedAlertId.HasValue)
+                        {
+                            <span class="badge bg-warning text-dark ms-auto" style="font-size:0.6rem">ALERT</span>
+                        }
+                    </div>
+                }
+            }
+        </div>
+    </aside>
+
+    <!-- Chat Main -->
+    <div class="chat-main">
+        @if (_currentSessionId is null)
+        {
+            <div class="chat-welcome">
+                <i class="bi bi-cpu display-1 text-primary"></i>
+                <h3 class="mt-3">Azure Helpdesk Copilot</h3>
+                <p class="text-muted">Start a new session to get AI-powered support assistance</p>
+                <button class="btn btn-primary" @onclick="NewSession">
+                    <i class="bi bi-chat-dots-fill me-2"></i>Start Session
+                </button>
+            </div>
+        }
+        else
+        {
+            <div class="chat-messages" id="chatMessages">
+                @if (_messages.Count == 0)
+                {
+                    <div class="text-center text-muted mt-4">
+                        <i class="bi bi-chat-dots display-4"></i>
+                        <p class="mt-2">Ask me anything about your Azure infrastructure</p>
+                        <div class="d-flex flex-wrap gap-2 justify-content-center mt-3">
+                            @foreach (var hint in _hints)
+                            {
+                                <button class="btn btn-sm btn-outline-secondary" @onclick="() => UseHint(hint)">@hint</button>
+                            }
+                        </div>
+                    </div>
+                }
+                @foreach (var msg in _messages)
+                {
+                    <div class="message-row @(msg.Role == MessageRole.User ? "user" : "assistant")">
+                        @if (msg.Role == MessageRole.Assistant)
+                        {
+                            <div class="message-avatar"><i class="bi bi-cpu-fill"></i></div>
+                        }
+                        <div class="message-bubble @(msg.Role == MessageRole.User ? "user-bubble" : "assistant-bubble")">
+                            <div class="message-content">@((MarkupString)FormatMarkdown(msg.Content))</div>
+                            @if (msg.Sources.Any())
+                            {
+                                <div class="message-sources">
+                                    <i class="bi bi-book me-1"></i>Sources:
+                                    @foreach (var src in msg.Sources)
+                                    {
+                                        <span class="source-tag">@src</span>
+                                    }
+                                </div>
+                            }
+                            <div class="message-time">@msg.Timestamp.ToString("HH:mm")</div>
+                        </div>
+                        @if (msg.Role == MessageRole.User)
+                        {
+                            <div class="message-avatar user-avatar"><i class="bi bi-person-fill"></i></div>
+                        }
+                    </div>
+                }
+                @if (_thinking)
+                {
+                    <div class="message-row assistant">
+                        <div class="message-avatar"><i class="bi bi-cpu-fill"></i></div>
+                        <div class="message-bubble assistant-bubble">
+                            <div class="typing-indicator">
+                                <span></span><span></span><span></span>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <!-- Input -->
+            <div class="chat-input-area">
+                @if (_lastSuggestedActions.Any())
+                {
+                    <div class="suggested-actions mb-2">
+                        @foreach (var action in _lastSuggestedActions)
+                        {
+                            <button class="btn btn-sm btn-outline-secondary" @onclick="() => UseHint(action)">
+                                @action
+                            </button>
+                        }
+                    </div>
+                }
+                <div class="input-group">
+                    <textarea class="form-control chat-textarea"
+                              placeholder="Ask about alerts, logs, tickets, or Azure issues…"
+                              @bind="_inputText"
+                              @onkeydown="OnKeyDown"
+                              rows="2" disabled="@_thinking"></textarea>
+                    <button class="btn btn-primary" @onclick="SendMessage" disabled="@(_thinking || string.IsNullOrWhiteSpace(_inputText))">
+                        @if (_thinking)
+                        {
+                            <div class="spinner-border spinner-border-sm"></div>
+                        }
+                        else
+                        {
+                            <i class="bi bi-send-fill"></i>
+                        }
+                    </button>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromQuery] public Guid? AlertId { get; set; }
+
+    private List<ChatSession> _sessions = [];
+    private List<ChatMessage> _messages = [];
+    private List<string> _lastSuggestedActions = [];
+    private string? _currentSessionId;
+    private string _inputText = string.Empty;
+    private bool _thinking;
+
+    private static readonly string[] _hints =
+    [
+        "Why did this alert trigger?",
+        "What should I check first?",
+        "Generate a customer-friendly update",
+        "Has this issue happened before?",
+        "Create a ticket summary"
+    ];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSessions();
+        if (AlertId.HasValue)
+        {
+            var session = await Api.CreateChatSessionAsync(AlertId, "Alert Investigation");
+            _currentSessionId = session?.Id;
+            if (!string.IsNullOrEmpty(_currentSessionId))
+            {
+                _sessions.Insert(0, session!);
+                _inputText = "Analyze this alert and tell me what I should check first.";
+                await SendMessage();
+            }
+        }
+    }
+
+    private async Task LoadSessions()
+    {
+        try { _sessions = await Api.GetChatSessionsAsync(20) ?? []; }
+        catch { }
+    }
+
+    private async Task SelectSession(string sessionId)
+    {
+        _currentSessionId = sessionId;
+        try
+        {
+            var session = await Api.GetChatSessionAsync(sessionId);
+            _messages = session?.Messages.OrderBy(m => m.Timestamp).ToList() ?? [];
+        }
+        catch { }
+    }
+
+    private async Task NewSession()
+    {
+        var session = await Api.CreateChatSessionAsync();
+        _currentSessionId = session?.Id;
+        _messages = [];
+        _lastSuggestedActions = [];
+        if (session != null) _sessions.Insert(0, session);
+    }
+
+    private async Task SendMessage()
+    {
+        if (string.IsNullOrWhiteSpace(_inputText) || _currentSessionId is null) return;
+
+        var userMsg = new ChatMessage
+        {
+            Id = Guid.NewGuid(),
+            Role = MessageRole.User,
+            Content = _inputText.Trim(),
+            Timestamp = DateTime.UtcNow,
+            SessionId = _currentSessionId
+        };
+        _messages.Add(userMsg);
+        _inputText = string.Empty;
+        _thinking = true;
+        _lastSuggestedActions = [];
+
+        try
+        {
+            var response = await Api.SendMessageAsync(new ChatRequest
+            {
+                SessionId = _currentSessionId,
+                Message = userMsg.Content,
+                AlertId = AlertId
+            });
+
+            if (response != null)
+            {
+                _messages.Add(new ChatMessage
+                {
+                    Id = Guid.NewGuid(),
+                    Role = MessageRole.Assistant,
+                    Content = response.Response,
+                    Sources = response.Sources,
+                    Timestamp = DateTime.UtcNow,
+                    SessionId = _currentSessionId
+                });
+                _lastSuggestedActions = response.SuggestedActions;
+            }
+        }
+        catch (Exception ex)
+        {
+            _messages.Add(new ChatMessage
+            {
+                Id = Guid.NewGuid(),
+                Role = MessageRole.Assistant,
+                Content = $"Sorry, I encountered an error: {ex.Message}",
+                Timestamp = DateTime.UtcNow,
+                SessionId = _currentSessionId
+            });
+        }
+        finally { _thinking = false; }
+    }
+
+    private void UseHint(string hint) { _inputText = hint; }
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !e.ShiftKey)
+            await SendMessage();
+    }
+
+    private static string FormatMarkdown(string text)
+    {
+        if (string.IsNullOrEmpty(text)) return text;
+        text = System.Text.RegularExpressions.Regex.Replace(text, @"\*\*(.+?)\*\*", "<strong>$1</strong>");
+        text = System.Text.RegularExpressions.Regex.Replace(text, @"\*(.+?)\*", "<em>$1</em>");
+        text = text.Replace("\n", "<br/>");
+        return text;
+    }
+
+    private static string TruncateTitle(string title) =>
+        title.Length > 28 ? title[..25] + "…" : title;
+
+    private static string TimeAgo(DateTime dt)
+    {
+        var diff = DateTime.UtcNow - dt;
+        if (diff.TotalMinutes < 60) return $"{(int)diff.TotalMinutes}m ago";
+        if (diff.TotalHours < 24) return $"{(int)diff.TotalHours}h ago";
+        return dt.ToString("MMM d");
+    }
+}

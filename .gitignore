@@ -1,0 +1,54 @@
+## .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+_ReSharper*/
+*.DotSettings.user
+
+## Publish
+publish/
+*.pubxml
+*.pubxml.user
+
+## Secrets / local config
+appsettings.local.json
+appsettings.*.local.json
+local.settings.json
+.env
+.env.*
+secrets.json
+*.pfx
+*.p12
+
+## Azure Functions
+.python_packages/
+
+## NuGet
+*.nupkg
+*.snupkg
+packages/
+!**/packages/repositories.config
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+## Test results
+TestResults/
+coverage/
+*.trx
+*.coveragexml
+*.coverage
+
+## OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+## IDE
+.idea/
+*.swp
+*.swo
+.vscode/settings.json
+.vscode/launch.json

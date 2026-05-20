@@ -1,0 +1,220 @@
+@page "/tickets"
+@inject ApiClient Api
+
+<PageTitle>Tickets — Azure Helpdesk Copilot</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h5 class="mb-0">Support Tickets</h5>
+    <div class="d-flex gap-2">
+        <select class="form-select form-select-sm" @bind="_statusFilter" @bind:after="LoadTickets" style="width:160px">
+            <option value="">All Status</option>
+            @foreach (var s in Enum.GetValues<TicketStatus>())
+            {
+                <option value="@s">@s</option>
+            }
+        </select>
+        <button class="btn btn-sm btn-outline-secondary" @onclick="LoadTickets">
+            <i class="bi bi-arrow-clockwise"></i>
+        </button>
+    </div>
+</div>
+
+@if (_loading)
+{
+    <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+}
+else if (_tickets.Count == 0)
+{
+    <div class="text-center py-5">
+        <i class="bi bi-inbox display-3 text-muted"></i>
+        <h5 class="mt-3">No tickets found</h5>
+        <p class="text-muted">Create alerts and use AI analysis to auto-generate tickets</p>
+    </div>
+}
+else
+{
+    <div class="ticket-list">
+        @foreach (var ticket in _tickets)
+        {
+            <div class="card mb-3 @(_selectedTicketId == ticket.Id ? "border-primary" : "")">
+                <div class="card-header d-flex align-items-center gap-2" style="cursor:pointer"
+                     @onclick="() => ToggleTicket(ticket.Id)">
+                    <span class="badge @PriorityBadge(ticket.Priority)">@ticket.Priority</span>
+                    <span class="badge @TicketStatusBadge(ticket.Status)">@ticket.Status</span>
+                    <span class="fw-semibold flex-grow-1">@ticket.Title</span>
+                    <small class="text-muted me-2">@ticket.AffectedService</small>
+                    <small class="text-muted me-2">@TimeAgo(ticket.CreatedAt)</small>
+                    <small class="text-muted">@ticket.AssignedTo</small>
+                    <i class="bi bi-chevron-@(_selectedTicketId == ticket.Id ? "up" : "down") ms-2"></i>
+                </div>
+
+                @if (_selectedTicketId == ticket.Id)
+                {
+                    <div class="card-body">
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold text-muted small">AI SUMMARY</label>
+                                <p class="mb-0">@(string.IsNullOrEmpty(ticket.AiSummary) ? "—" : ticket.AiSummary)</p>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold text-muted small">POSSIBLE ROOT CAUSE</label>
+                                <p class="mb-0">@(string.IsNullOrEmpty(ticket.PossibleRootCause) ? "—" : ticket.PossibleRootCause)</p>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold text-muted small">RECOMMENDED ACTIONS</label>
+                            <pre class="analysis-text">@(string.IsNullOrEmpty(ticket.RecommendedActions) ? "—" : ticket.RecommendedActions)</pre>
+                        </div>
+
+                        @if (!string.IsNullOrEmpty(ticket.RelatedDocumentationLink))
+                        {
+                            <div class="mb-3">
+                                <a href="@ticket.RelatedDocumentationLink" class="btn btn-sm btn-outline-info">
+                                    <i class="bi bi-book me-1"></i>View Runbook
+                                </a>
+                            </div>
+                        }
+
+                        <!-- Status & Assignment -->
+                        <div class="row g-2 mb-3">
+                            <div class="col-md-3">
+                                <label class="form-label small fw-semibold">Status</label>
+                                <select class="form-select form-select-sm" @bind="_editStatus">
+                                    @foreach (var s in Enum.GetValues<TicketStatus>())
+                                    {
+                                        <option value="@s">@s</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small fw-semibold">Priority</label>
+                                <select class="form-select form-select-sm" @bind="_editPriority">
+                                    @foreach (var p in Enum.GetValues<TicketPriority>())
+                                    {
+                                        <option value="@p">@p</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small fw-semibold">Assigned To</label>
+                                <input class="form-control form-control-sm" @bind="_editAssignedTo" />
+                            </div>
+                            <div class="col-md-3 d-flex align-items-end gap-2">
+                                <button class="btn btn-sm btn-primary" @onclick="() => SaveTicket(ticket)">
+                                    <i class="bi bi-save me-1"></i>Save
+                                </button>
+                                @if (ticket.Status != TicketStatus.Resolved)
+                                {
+                                    <button class="btn btn-sm btn-success" @onclick="() => ResolveTicket(ticket)">
+                                        <i class="bi bi-check me-1"></i>Resolve
+                                    </button>
+                                }
+                            </div>
+                        </div>
+
+                        <!-- Comments -->
+                        <hr />
+                        <h6 class="text-muted small fw-semibold mb-2">COMMENTS (@ticket.Comments.Count)</h6>
+                        @foreach (var comment in ticket.Comments)
+                        {
+                            <div class="comment-item">
+                                <strong>@comment.Author</strong>
+                                <span class="text-muted small ms-2">@TimeAgo(comment.CreatedAt)</span>
+                                <p class="mb-0 mt-1">@comment.Content</p>
+                            </div>
+                        }
+                        <div class="mt-2 d-flex gap-2">
+                            <input class="form-control form-control-sm" placeholder="Add a comment…" @bind="_newComment" />
+                            <button class="btn btn-sm btn-outline-primary" @onclick="() => AddComment(ticket)">
+                                <i class="bi bi-send"></i>
+                            </button>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private List<Ticket> _tickets = [];
+    private bool _loading = true;
+    private string _statusFilter = "";
+    private Guid? _selectedTicketId;
+    private string _newComment = string.Empty;
+    private TicketStatus _editStatus;
+    private TicketPriority _editPriority;
+    private string _editAssignedTo = string.Empty;
+
+    protected override async Task OnInitializedAsync() => await LoadTickets();
+
+    private async Task LoadTickets()
+    {
+        _loading = true;
+        TicketStatus? filter = Enum.TryParse<TicketStatus>(_statusFilter, out var s) ? s : null;
+        try { _tickets = await Api.GetTicketsAsync(filter) ?? []; }
+        catch { }
+        finally { _loading = false; }
+    }
+
+    private void ToggleTicket(Guid id)
+    {
+        if (_selectedTicketId == id) { _selectedTicketId = null; return; }
+        var ticket = _tickets.FirstOrDefault(t => t.Id == id);
+        if (ticket == null) return;
+        _selectedTicketId = id;
+        _editStatus = ticket.Status;
+        _editPriority = ticket.Priority;
+        _editAssignedTo = ticket.AssignedTo;
+    }
+
+    private async Task SaveTicket(Ticket ticket)
+    {
+        ticket.Status = _editStatus;
+        ticket.Priority = _editPriority;
+        ticket.AssignedTo = _editAssignedTo;
+        await Api.UpdateTicketAsync(ticket.Id, ticket);
+        await LoadTickets();
+    }
+
+    private async Task ResolveTicket(Ticket ticket)
+    {
+        await Api.ResolveTicketAsync(ticket.Id);
+        await LoadTickets();
+        _selectedTicketId = null;
+    }
+
+    private async Task AddComment(Ticket ticket)
+    {
+        if (string.IsNullOrWhiteSpace(_newComment)) return;
+        await Api.AddCommentAsync(ticket.Id, "Engineer", _newComment);
+        _newComment = string.Empty;
+        await LoadTickets();
+    }
+
+    private static string PriorityBadge(TicketPriority p) => p switch
+    {
+        TicketPriority.Critical => "severity-critical",
+        TicketPriority.High => "severity-high",
+        TicketPriority.Medium => "severity-medium",
+        _ => "severity-low"
+    };
+
+    private static string TicketStatusBadge(TicketStatus s) => s switch
+    {
+        TicketStatus.Open => "bg-danger",
+        TicketStatus.InProgress => "bg-primary",
+        TicketStatus.Resolved => "bg-success",
+        _ => "bg-secondary"
+    };
+
+    private static string TimeAgo(DateTime dt)
+    {
+        var diff = DateTime.UtcNow - dt;
+        if (diff.TotalMinutes < 1) return "just now";
+        if (diff.TotalMinutes < 60) return $"{(int)diff.TotalMinutes}m ago";
+        if (diff.TotalHours < 24) return $"{(int)diff.TotalHours}h ago";
+        return dt.ToString("MMM d HH:mm");
+    }
+}

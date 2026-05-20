@@ -1,0 +1,128 @@
+@page "/knowledge"
+@inject ApiClient Api
+
+<PageTitle>Knowledge Base — Azure Helpdesk Copilot</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h5 class="mb-0">Knowledge Base</h5>
+    <span class="badge bg-secondary">@_documents.Count articles</span>
+</div>
+
+<!-- Search Bar -->
+<div class="input-group mb-4">
+    <input class="form-control" placeholder="Search troubleshooting guides…" @bind="_searchQuery" @bind:event="oninput" @onkeyup="OnSearch" />
+    <button class="btn btn-primary" @onclick="SearchDocuments">
+        <i class="bi bi-search me-1"></i>Search
+    </button>
+    @if (!string.IsNullOrEmpty(_searchQuery))
+    {
+        <button class="btn btn-outline-secondary" @onclick="ClearSearch">
+            <i class="bi bi-x"></i>
+        </button>
+    }
+</div>
+
+@if (_loading)
+{
+    <div class="text-center py-4"><div class="spinner-border text-primary"></div></div>
+}
+else
+{
+    var displayDocs = _searchResults.Count > 0 ? _searchResults : _documents;
+
+    @if (_searchResults.Count > 0)
+    {
+        <p class="text-muted mb-3"><i class="bi bi-search me-1"></i>@_searchResults.Count result(s) for "@_searchQuery"</p>
+    }
+
+    <div class="row g-3">
+        @foreach (var doc in displayDocs)
+        {
+            <div class="col-md-6 col-lg-4">
+                <div class="card h-100 doc-card" @onclick="() => ToggleDoc(doc.Id)">
+                    <div class="card-body">
+                        <div class="d-flex align-items-start gap-2 mb-2">
+                            <i class="bi @CategoryIcon(doc.Category) text-primary fs-5"></i>
+                            <div>
+                                <h6 class="card-title mb-1">@doc.Title</h6>
+                                <span class="badge bg-light text-dark border">@doc.Category</span>
+                                @if (doc.Score.HasValue)
+                                {
+                                    <span class="badge bg-success ms-1">@(doc.Score.Value.ToString("P0")) match</span>
+                                }
+                            </div>
+                        </div>
+                        <div class="doc-tags mb-2">
+                            @foreach (var tag in doc.Tags.Take(4))
+                            {
+                                <span class="doc-tag">#@tag</span>
+                            }
+                        </div>
+                        @if (_expandedDocId == doc.Id)
+                        {
+                            <pre class="doc-content mt-2">@doc.Content</pre>
+                        }
+                        else
+                        {
+                            <p class="card-text text-muted small">@TruncateContent(doc.Content)</p>
+                        }
+                    </div>
+                    <div class="card-footer bg-transparent">
+                        <small class="text-muted">
+                            <i class="bi bi-clock me-1"></i>Indexed @doc.IndexedAt.ToString("MMM d, yyyy")
+                        </small>
+                        <button class="btn btn-link btn-sm p-0 float-end" @onclick:stopPropagation>
+                            <i class="bi bi-chevron-@(_expandedDocId == doc.Id ? "up" : "down")"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private List<KnowledgeDocument> _documents = [];
+    private List<KnowledgeDocument> _searchResults = [];
+    private bool _loading = true;
+    private string _searchQuery = string.Empty;
+    private string? _expandedDocId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { _documents = await Api.GetKnowledgeDocumentsAsync() ?? []; }
+        catch { }
+        finally { _loading = false; }
+    }
+
+    private async Task SearchDocuments()
+    {
+        if (string.IsNullOrWhiteSpace(_searchQuery)) { _searchResults = []; return; }
+        try { _searchResults = await Api.SearchKnowledgeAsync(_searchQuery, 6) ?? []; }
+        catch { }
+    }
+
+    private async Task OnSearch(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await SearchDocuments();
+        else if (string.IsNullOrEmpty(_searchQuery)) _searchResults = [];
+    }
+
+    private void ClearSearch() { _searchQuery = string.Empty; _searchResults = []; }
+
+    private void ToggleDoc(string id) =>
+        _expandedDocId = _expandedDocId == id ? null : id;
+
+    private static string CategoryIcon(string cat) => cat switch
+    {
+        "App Service" => "bi-cloud-fill",
+        "Database" => "bi-database-fill",
+        "Performance" => "bi-speedometer2",
+        "Azure Functions" => "bi-lightning-fill",
+        "Security" => "bi-shield-fill",
+        _ => "bi-file-text-fill"
+    };
+
+    private static string TruncateContent(string content) =>
+        content.Length > 120 ? content[..117].TrimEnd() + "…" : content;
+}

@@ -1,0 +1,116 @@
+@inherits LayoutComponentBase
+@implements IDisposable
+@inject ApiClient Api
+@inject NavigationManager Nav
+
+<div class="app-shell">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-brand">
+            <i class="bi bi-cloud-lightning-fill brand-icon"></i>
+            <span class="brand-text">Helpdesk Copilot</span>
+        </div>
+        <nav class="sidebar-nav">
+            <NavLink href="/" Match="NavLinkMatch.All" class="nav-item" ActiveClass="active">
+                <i class="bi bi-speedometer2"></i>
+                <span>Dashboard</span>
+            </NavLink>
+            <NavLink href="/alerts" class="nav-item" ActiveClass="active">
+                <i class="bi bi-bell-fill"></i>
+                <span>Alerts</span>
+                @if (_criticalCount > 0)
+                {
+                    <span class="badge bg-danger ms-auto">@_criticalCount</span>
+                }
+            </NavLink>
+            <NavLink href="/tickets" class="nav-item" ActiveClass="active">
+                <i class="bi bi-ticket-detailed-fill"></i>
+                <span>Tickets</span>
+            </NavLink>
+            <NavLink href="/chat" class="nav-item" ActiveClass="active">
+                <i class="bi bi-chat-dots-fill"></i>
+                <span>AI Copilot</span>
+            </NavLink>
+            <NavLink href="/knowledge" class="nav-item" ActiveClass="active">
+                <i class="bi bi-book-fill"></i>
+                <span>Knowledge Base</span>
+            </NavLink>
+        </nav>
+        <div class="sidebar-footer">
+            <span class="text-muted small">Azure AI Helpdesk v1.0</span>
+        </div>
+    </aside>
+
+    <!-- Main content -->
+    <div class="main-wrapper">
+        <header class="topbar">
+            <div class="topbar-left">
+                <h6 class="page-title mb-0 text-muted">@_pageTitle</h6>
+            </div>
+            <div class="topbar-right">
+                <button class="btn btn-sm btn-outline-secondary me-2" @onclick="RefreshNotifications">
+                    <i class="bi bi-bell@(_unreadCount > 0 ? "-fill text-warning" : "")"></i>
+                    @if (_unreadCount > 0)
+                    {
+                        <span class="badge bg-warning text-dark ms-1">@_unreadCount</span>
+                    }
+                </button>
+                <span class="text-muted small">Support Team</span>
+            </div>
+        </header>
+
+        <main class="page-content">
+            @Body
+        </main>
+    </div>
+</div>
+
+@code {
+    private int _unreadCount;
+    private int _criticalCount;
+    private string _pageTitle = "Dashboard";
+
+    protected override async Task OnInitializedAsync()
+    {
+        Nav.LocationChanged += OnLocationChanged;
+        await RefreshNotifications();
+        await LoadCriticalAlerts();
+        UpdateTitle(Nav.Uri);
+    }
+
+    private async Task RefreshNotifications()
+    {
+        try
+        {
+            var notifications = await Api.GetNotificationsAsync(unreadOnly: true);
+            _unreadCount = notifications?.Count ?? 0;
+        }
+        catch { /* suppress — API may not be running */ }
+    }
+
+    private async Task LoadCriticalAlerts()
+    {
+        try
+        {
+            var alerts = await Api.GetAlertsAsync(AlertStatus.New, 100);
+            _criticalCount = alerts?.Count(a => a.Severity == AlertSeverity.Critical) ?? 0;
+        }
+        catch { }
+    }
+
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        UpdateTitle(e.Location);
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void UpdateTitle(string url)
+    {
+        _pageTitle = url.Contains("/alerts") ? "Alerts" :
+                     url.Contains("/tickets") ? "Tickets" :
+                     url.Contains("/chat") ? "AI Copilot" :
+                     url.Contains("/knowledge") ? "Knowledge Base" : "Dashboard";
+    }
+
+    public void Dispose() => Nav.LocationChanged -= OnLocationChanged;
+}
