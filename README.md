@@ -21,7 +21,7 @@ An AI-powered cloud support assistant for IT support teams. Automatically ingest
 | 🔔 | **Notifications** | Dashboard alerts + mock Teams/email routing by severity |
 | ⚡ | **Azure Functions** | Background alert poller (5 min) and ticket escalation notifier (10 min) |
 | 🖥️ | **Blazor Dashboard** | Dashboard, Alerts, Tickets, AI Chat, and Knowledge Base pages |
-| 🚀 | **IaC & CI/CD** | Bicep one-command deployment + GitHub Actions build/deploy pipeline |
+| 🚀 | **IaC** | Bicep one-command deployment |
 
 ---
 
