@@ -4,6 +4,14 @@ An AI-powered cloud support assistant for IT support teams. Automatically ingest
 
 ---
 
+## 📸 Screenshots
+
+| Dashboard | AI Copilot Chat |
+|-----------|----------------|
+| ![Dashboard](assets/dashboard.png) | ![AI Copilot](assets/copilot.png) |
+
+---
+
 ## ✨ Features
 
 | | Feature | Description |
@@ -23,30 +31,7 @@ An AI-powered cloud support assistant for IT support teams. Automatically ingest
 
 ## 🏗️ Architecture
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    Blazor Web Frontend                      │
-│  Dashboard | Alerts | Tickets | AI Chat | Knowledge Base   │
-└───────────────────────┬─────────────────────────────────────┘
-                        │ HTTP/REST
-┌───────────────────────▼─────────────────────────────────────┐
-│                  ASP.NET Core Web API                       │
-│                                                             │
-│  AlertIngestion  LogAnalysis   RAG        CopilotChat      │
-│  TicketService   Notification  Knowledge  CRUD             │
-└──┬──────────┬───────────┬────────────┬────────────────────┘
-   │          │           │            │
-   ▼          ▼           ▼            ▼
-Azure      Azure       Azure AI     Azure
-Monitor    OpenAI      Search       SQL
-(KQL)      (GPT-4o)    (RAG)        (Tickets)
-
-                   Azure Functions
-                   ┌─────────────────────────────┐
-                   │  AlertPoller (5 min timer)  │
-                   │  TicketEscalation (10 min)  │
-                   └─────────────────────────────┘
-```
+![Architecture Diagram](assets/architecture.png)
 
 ---
 
